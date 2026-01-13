@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Focus Forest</title>
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0f2f28">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:system-ui}
+body{
+  min-height:100vh;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  background:linear-gradient(180deg,#071a16,#0f2f28);
+  color:#e9fff8
+}
+.card{
+  width:360px;
+  background:rgba(255,255,255,.05);
+  padding:22px;
+  border-radius:24px
+}
+.top{display:flex;justify-content:space-between;font-weight:600}
+.tree{text-align:center;font-size:90px;margin:20px 0}
+.timer{text-align:center;font-size:48px}
+.progress{
+  height:8px;
+  background:#12352d;
+  border-radius:10px;
+  overflow:hidden;
+  margin:15px 0
+}
+.bar{height:100%;width:0;background:#57f2c3}
+.controls{display:flex;gap:8px;margin-top:10px}
+.controls button,select{
+  flex:1;
+  padding:12px;
+  border:none;
+  border-radius:14px;
+  background:#1c4037;
+  color:#e9fff8;
+  font-weight:600
+}
+.start{
+  margin-top:10px;
+  width:100%;
+  padding:14px;
+  border:none;
+  border-radius:18px;
+  background:#57f2c3;
+  color:#043026;
+  font-weight:800
+}
+.store-btn{
+  margin-top:10px;
+  width:100%;
+  padding:12px;
+  border:none;
+  border-radius:16px;
+  background:#1c4037;
+  color:#e9fff8
+}
+.popup{
+  position:fixed;
+  bottom:30px;
+  left:50%;
+  transform:translateX(-50%);
+  background:#1c4037;
+  padding:10px 18px;
+  border-radius:20px;
+  opacity:0;
+  transition:.3s;
+  max-width:80%;
+  text-align:center
+}
+.store{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.75);
+  display:none;
+  justify-content:center;
+  align-items:center
+}
+.store-box{
+  width:320px;
+  background:#0f2f28;
+  padding:20px;
+  border-radius:22px
+}
+.trees{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:14px;
+  text-align:center;
+  font-size:36px
+}
+</style>
+</head>
+
+<body>
+
+<div class="card">
+  <div class="top">
+    <div>🔥 <span id="streak">0</span></div>
+    <div>⭐ <span id="stars">0</span></div>
+  </div>
+
+  <div class="tree" id="tree">🌱</div>
+  <div class="timer" id="timer">25:00</div>
+
+  <div class="progress">
+    <div class="bar" id="bar"></div>
+  </div>
+
+  <button class="start" id="startBtn">🌱 Plant Tree</button>
+
+  <div class="controls">
+    <button id="stopBtn">⏸</button>
+    <select id="duration">
+      <option value="25">25m</option>
+      <option value="45">45m</option>
+      <option value="60">60m</option>
+    </select>
+    <button id="restartBtn">⟲</button>
+  </div>
+
+  <button class="store-btn" id="openStore">🛒 Tree Store</button>
+</div>
+
+<div class="popup" id="popup"></div>
+
+<div class="store" id="store">
+  <div class="store-box">
+    <h3>🌳 Tree Store</h3>
+    <p style="opacity:.7;font-size:13px">Daily refresh • Rare trees</p>
+    <div class="trees" id="storeTrees"></div>
+    <button class="store-btn" id="closeStore">Close</button>
+  </div>
+</div>
+
+<script>
+/* ===== DATA ===== */
+const thoughts=[
+  "You can do it.",
+  "Stay focused.",
+  "Discipline beats motivation.",
+  "One minute at a time.",
+  "This effort will change your life."
+];
+
+const trees=[
+  {icon:"🌱",cost:0},
+  {icon:"🌸",cost:100},
+  {icon:"🔥",cost:300},
+  {icon:"🌲",cost:500},
+  {icon:"🐉",cost:0,rare:true}
+];
+
+/* ===== STATE ===== */
+let duration=25*60;
+let time=duration;
+let running=false;
+
+let stars=+localStorage.getItem("stars")||0;
+let streak=+localStorage.getItem("streak")||0;
+let owned=JSON.parse(localStorage.getItem("owned")||"[true]");
+let current=+localStorage.getItem("current")||0;
+
+/* ===== ELEMENTS ===== */
+const timerEl=document.getElementById("timer");
+const bar=document.getElementById("bar");
+const starsEl=document.getElementById("stars");
+const streakEl=document.getElementById("streak");
+const treeEl=document.getElementById("tree");
+const popup=document.getElementById("popup");
+const store=document.getElementById("store");
+const storeTrees=document.getElementById("storeTrees");
+
+/* ===== DAILY CHEST ===== */
+const today=new Date().toDateString();
+if(localStorage.getItem("lastChest")!==today){
+  stars+=10;
+  localStorage.setItem("stars",stars);
+  localStorage.setItem("lastChest",today);
+  setTimeout(()=>pop("🎁 Daily Chest +10⭐"),500);
+}
+
+/* ===== INIT ===== */
+starsEl.textContent=stars;
+streakEl.textContent=streak;
+treeEl.textContent=trees[current].icon;
+updateTimer();
+
+/* ===== TIMER ===== */
+setInterval(()=>{
+  if(!running) return;
+
+  time--;
+  bar.style.width=((duration-time)/duration)*100+"%";
+
+  if(time>0 && time%60===0){
+    stars++;
+    starsEl.textContent=stars;
+    localStorage.setItem("stars",stars);
+    pop("⭐ +1 • "+thoughts[Math.floor(Math.random()*thoughts.length)]);
+  }
+
+  if(time<=0){
+    running=false;
+    streak++;
+    streakEl.textContent=streak;
+    localStorage.setItem("streak",streak);
+    pop("🔥 Session Complete");
+  }
+
+  updateTimer();
+},1000);
+
+function updateTimer(){
+  timerEl.textContent=
+    String(Math.floor(time/60)).padStart(2,"0")+":"+
+    String(time%60).padStart(2,"0");
+}
+
+/* ===== CONTROLS ===== */
+startBtn.onclick=()=>{
+  if(time<=0) time=duration;
+  running=true;
+  pop("🌱 Focus Started");
+};
+
+stopBtn.onclick=()=>{
+  running=false;
+  pop("⏸ Paused");
+};
+
+restartBtn.onclick=()=>{
+  time=duration;
+  running=true;
+  bar.style.width="0%";
+  updateTimer();
+};
+
+duration.onchange=e=>{
+  duration=e.target.value*60;
+  time=duration;
+  running=false;
+  bar.style.width="0%";
+  updateTimer();
+};
+
+/* ===== STORE ===== */
+openStore.onclick=()=>{
+  renderStore();
+  store.style.display="flex";
+};
+closeStore.onclick=()=>store.style.display="none";
+
+function renderStore(){
+  storeTrees.innerHTML="";
+  trees.forEach((t,i)=>{
+    if(t.rare && Math.random()>0.1) return;
+    const d=document.createElement("div");
+    d.innerHTML=`${t.icon}<br><small>${t.rare?"RARE":t.cost+"⭐"}</small>`;
+    d.onclick=()=>buy(i);
+    storeTrees.appendChild(d);
+  });
+}
+
+function buy(i){
+  const t=trees[i];
+  if(owned[i]){
+    current=i;
+    treeEl.textContent=t.icon;
+    save();
+    store.style.display="none";
+    return;
+  }
+  if(t.rare || stars>=t.cost){
+    stars-=t.cost||0;
+    owned[i]=true;
+    current=i;
+    treeEl.textContent=t.icon;
+    save();
+    pop("🌳 Unlocked");
+    store.style.display="none";
+  }else pop("Not enough ⭐");
+}
+
+function save(){
+  localStorage.setItem("stars",stars);
+  localStorage.setItem("streak",streak);
+  localStorage.setItem("owned",JSON.stringify(owned));
+  localStorage.setItem("current",current);
+}
+
+function pop(t){
+  popup.textContent=t;
+  popup.style.opacity=1;
+  setTimeout(()=>popup.style.opacity=0,1500);
+}
+
+/* ===== SERVICE WORKER ===== */
+if("serviceWorker"in navigator){
+  navigator.serviceWorker.register("sw.js");
+}
+</script>
+
+</body>
+  </html>
