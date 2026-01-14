@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Focus Forest</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+:root{
+  --bg:#0f2f2a; --bg2:#0b2420; --card:#163b34;
+  --accent:#5cf2c2; --accent2:#2fd6a2;
+  --text:#e6fffa; --muted:#9dd5c6;
+}
+body{
+  margin:0;
+  font-family:system-ui;
+  background:linear-gradient(180deg,var(--bg),var(--bg2));
+  color:var(--text);
+}
+.app{max-width:420px;margin:auto;padding:16px}
+.card{background:var(--card);border-radius:22px;padding:18px;margin-bottom:14px}
+.row{display:flex;justify-content:space-between;align-items:center}
+.center{text-align:center}
+.stat{font-weight:700}
+.main-tree{font-size:90px;margin:12px 0;transition:.3s}
+.main-tree.water{transform:scale(1.15)}
+.timer{font-size:56px;margin:10px 0}
+button{border:none;cursor:pointer;font-family:inherit}
+.plant-btn{width:100%;padding:18px;border-radius:18px;font-size:18px;font-weight:700;background:linear-gradient(135deg,var(--accent),var(--accent2))}
+.controls{display:flex;justify-content:center;gap:12px;margin-top:12px}
+.ctrl{background:#1b4d43;color:var(--text);padding:12px 16px;border-radius:14px}
+.water-btn{width:100%;margin-top:14px;background:#1e5f52;padding:14px;border-radius:16px;color:var(--text)}
+.menu{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.menu button{background:#1b4d43;color:var(--text);padding:14px;border-radius:16px}
+.modal{position:fixed;inset:0;background:#0008;display:none;align-items:center;justify-content:center;z-index:10}
+.modal.active{display:flex}
+.modal-box{background:var(--card);width:92%;max-height:85%;overflow:auto;border-radius:22px;padding:16px}
+.close{background:#ef4444;color:white;padding:8px 12px;border-radius:12px;float:right}
+.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.item{background:#0003;border-radius:14px;padding:8px;text-align:center}
+.item small{display:block;font-size:11px;color:var(--muted)}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:black;color:white;padding:10px 18px;border-radius:20px;display:none}
+</style>
+</head>
+
+<body>
+<div class="app">
+
+<div class="card row">
+  <div class="stat">🌳 <span id="trees">0</span></div>
+  <div class="stat">⭐ <span id="stars">0</span> <button onclick="dailyBonus()" style="background:none;color:white">🎁</button></div>
+</div>
+
+<div class="card center">
+  <div id="tree" class="main-tree">🌱</div>
+</div>
+
+<div class="card center">
+  <select id="timerSelect">
+    <option value="5">5 min</option>
+    <option value="10">10 min</option>
+    <option value="25" selected>25 min</option>
+    <option value="45">45 min</option>
+    <option value="60">60 min</option>
+  </select>
+
+  <div id="timer" class="timer">25:00</div>
+
+  <button class="plant-btn" onclick="startTimer()">🌱 Plant Tree</button>
+
+  <div class="controls">
+    <button class="ctrl" onclick="pauseTimer()">⏸</button>
+    <button class="ctrl" onclick="resetTimer()">🔁</button>
+  </div>
+
+  <button class="water-btn" onclick="waterTree()">💧 Water</button>
+</div>
+
+<div class="card menu">
+  <button onclick="openStore('tree')">🌱 Tree Store</button>
+  <button onclick="openStore('animal')">🐾 Animal Store</button>
+  <button onclick="openStore('rebirth')">🔄 Rebirth Store</button>
+  <button onclick="openAchievements()">🏆 Achievements</button>
+</div>
+
+</div>
+
+<div class="modal" id="modal">
+  <div class="modal-box">
+    <button class="close" onclick="closeModal()">Close</button>
+    <h3 id="modalTitle"></h3>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ---------- STATE ---------- */
+let stars=0, trees=0;
+let timer=1500, interval=null;
+let growthStage=0;
+let inventory=[];
+let claimed=false;
+let rebirthed=false;
+
+const stages=["🌱","🌿","🌳","🌲","🌳✨"];
+const treeStore=["🌱","🌸","🎍","🪴","🍂","🌵","🍁","🍄"];
+const animalStore=["🐶","🐱","🐰","🦊","🐻","🐼","🦁","🦄"];
+const rebirthStore=["🦄","🐲","🌷","🪷","🪸","🦚","🦢"];
+
+/* ---------- ELEMENTS ---------- */
+const starsEl=document.getElementById("stars");
+const treesEl=document.getElementById("trees");
+const treeEl=document.getElementById("tree");
+const timerEl=document.getElementById("timer");
+const modal=document.getElementById("modal");
+const modalTitle=document.getElementById("modalTitle");
+const modalBody=document.getElementById("modalBody");
+
+/* ---------- SAVE / LOAD ---------- */
+function save(){
+  localStorage.setItem("focusForest",JSON.stringify({stars,trees,growthStage,inventory,claimed,rebirthed}));
+}
+function load(){
+  const d=JSON.parse(localStorage.getItem("focusForest"));
+  if(d)Object.assign(window,d);
+}
+load();
+
+/* ---------- UI ---------- */
+function updateUI(){
+  starsEl.textContent=stars;
+  treesEl.textContent=trees;
+  treeEl.textContent=stages[growthStage] || "🌳";
+  timerEl.textContent=`${String(Math.floor(timer/60)).padStart(2,"0")}:${String(timer%60).padStart(2,"0")}`;
+  save();
+}
+updateUI();
+
+/* ---------- TIMER (SESSION BASED GROWTH) ---------- */
+function startTimer(){
+  if(interval) return;
+  timer=parseInt(timerSelect.value)*60;
+
+  interval=setInterval(()=>{
+    timer--;
+    if(timer<=0){
+      clearInterval(interval);
+      interval=null;
+
+      trees++;
+      stars+=50;
+      growthStage=Math.min(growthStage+1,4);
+
+      toast("Session complete 🌱 +50⭐");
+      resetTimer();
+    }
+    updateUI();
+  },1000);
+}
+function pauseTimer(){clearInterval(interval);interval=null;}
+function resetTimer(){pauseTimer();timer=parseInt(timerSelect.value)*60;updateUI();}
+
+/* ---------- WATER ---------- */
+function waterTree(){
+  treeEl.classList.add("water");
+  setTimeout(()=>treeEl.classList.remove("water"),300);
+  toast("Tree watered 💧");
+}
+
+/* ---------- DAILY BONUS ---------- */
+function dailyBonus(){
+  if(claimed){toast("Already claimed");return;}
+  claimed=true;
+  let b=[50,60,100][Math.floor(Math.random()*3)];
+  stars+=b;
+  toast("Daily bonus +"+b+"⭐");
+  updateUI();
+}
+
+/* ---------- STORE ---------- */
+function openStore(type){
+  let items=[],base=0,extra="";
+
+  if(type==="tree"){items=treeStore;base=10;}
+  if(type==="animal"){items=animalStore;base=50;}
+  if(type==="rebirth"){
+    items=rebirthStore;base=100;
+    extra=`<button class="plant-btn" onclick="doRebirth()">🔄 REBIRTH (1000⭐)</button><br><br>`;
+  }
+
+  let html=extra+'<div class="grid">';
+  items.forEach((i,idx)=>{
+    let price=idx<2?0:base*idx;
+    html+=`<div class="item" onclick="buy('${i}',${price},'${type}')">
+      <span>${i}</span><small>${price}⭐</small></div>`;
+  });
+  html+='</div>';
+
+  modalTitle.textContent=type.toUpperCase()+" STORE";
+  modalBody.innerHTML=html;
+  modal.classList.add("active");
+}
+
+function buy(item,price,type){
+  if(type==="animal" && stars<750){toast("Animal store locked");return;}
+  if(type==="rebirth" && !rebirthed){toast("Rebirth required");return;}
+  if(stars<price){toast("Not enough ⭐");return;}
+  stars-=price;
+  inventory.push(item);
+  treeEl.textContent=item;
+  toast(item+" unlocked");
+  updateUI();
+}
+
+/* ---------- REBIRTH ---------- */
+function doRebirth(){
+  if(stars<1000){toast("Need 1000⭐");return;}
+  stars=0;trees=0;inventory=[];growthStage=0;
+  rebirthed=true;
+  toast("Rebirth successful 🔄");
+  closeModal();
+  updateUI();
+}
+
+/* ---------- ACHIEVEMENTS ---------- */
+function openAchievements(){
+  modalTitle.textContent="Achievements";
+  modalBody.innerHTML=`
+    <div class="item">First Session ${trees>=1?"✅":"❌"}</div>
+    <div class="item">100⭐ ${stars>=100?"✅":"❌"}</div>
+    <div class="item">Rebirth ${rebirthed?"✅":"❌"}</div>`;
+  modal.classList.add("active");
+}
+
+/* ---------- MISC ---------- */
+function closeModal(){modal.classList.remove("active");}
+function toast(t){
+  const x=document.getElementById("toast");
+  x.textContent=t;x.style.display="block";
+  setTimeout(()=>x.style.display="none",2000);
+}
+</script>
+</body>
+  </html>
