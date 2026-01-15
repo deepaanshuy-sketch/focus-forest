@@ -22,47 +22,94 @@ body{
 .row{display:flex;justify-content:space-between;align-items:center}
 .center{text-align:center}
 .stat{font-weight:700}
+
 .main-tree{font-size:90px;margin:12px 0;transition:.3s}
 .main-tree.water{transform:scale(1.15)}
+
 .timer{font-size:56px;margin:10px 0}
+
 button{border:none;cursor:pointer;font-family:inherit}
-.plant-btn{width:100%;padding:18px;border-radius:18px;font-size:18px;font-weight:700;background:linear-gradient(135deg,var(--accent),var(--accent2))}
+
+.plant-btn{
+  width:100%;padding:18px;border-radius:18px;
+  font-size:18px;font-weight:700;
+  background:linear-gradient(135deg,var(--accent),var(--accent2))
+}
+
 .controls{display:flex;justify-content:center;gap:12px;margin-top:12px}
 .ctrl{background:#1b4d43;color:var(--text);padding:12px 16px;border-radius:14px}
-.water-btn{width:100%;margin-top:14px;background:#1e5f52;padding:14px;border-radius:16px;color:var(--text)}
+
+.water-btn{
+  width:100%;margin-top:14px;background:#1e5f52;
+  padding:14px;border-radius:16px;color:var(--text)
+}
+
 .menu{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .menu button{background:#1b4d43;color:var(--text);padding:14px;border-radius:16px}
+
+select{
+  background:#1b4d43;color:white;border:none;
+  padding:8px 10px;border-radius:10px;
+}
+
+.select-row{
+  display:flex;
+  justify-content:center;
+  gap:10px;
+  margin-bottom:6px;
+}
+
 .modal{position:fixed;inset:0;background:#0008;display:none;align-items:center;justify-content:center;z-index:10}
 .modal.active{display:flex}
 .modal-box{background:var(--card);width:92%;max-height:85%;overflow:auto;border-radius:22px;padding:16px}
 .close{background:#ef4444;color:white;padding:8px 12px;border-radius:12px;float:right}
+
 .grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
 .item{background:#0003;border-radius:14px;padding:8px;text-align:center}
 .item small{display:block;font-size:11px;color:var(--muted)}
-.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:black;color:white;padding:10px 18px;border-radius:20px;display:none}
+
+.toast{
+  position:fixed;bottom:20px;left:50%;
+  transform:translateX(-50%);
+  background:black;color:white;
+  padding:10px 18px;border-radius:20px;
+  display:none
+}
 </style>
 </head>
 
 <body>
 <div class="app">
 
+<!-- STATS -->
 <div class="card row">
   <div class="stat">🌳 <span id="trees">0</span></div>
-  <div class="stat">⭐ <span id="stars">0</span> <button onclick="dailyBonus()" style="background:none;color:white">🎁</button></div>
+  <div class="stat">⭐ <span id="stars">0</span>
+    <button onclick="dailyBonus()" style="background:none;color:white">🎁</button>
+  </div>
 </div>
 
+<!-- TREE -->
 <div class="card center">
   <div id="tree" class="main-tree">🌱</div>
 </div>
 
+<!-- TIMER -->
 <div class="card center">
-  <select id="timerSelect">
-    <option value="5">5 min</option>
-    <option value="10">10 min</option>
-    <option value="25" selected>25 min</option>
-    <option value="45">45 min</option>
-    <option value="60">60 min</option>
-  </select>
+
+  <div class="select-row">
+    <select id="timerSelect">
+      <option value="5">5 min</option>
+      <option value="10">10 min</option>
+      <option value="25" selected>25 min</option>
+      <option value="45">45 min</option>
+      <option value="60">60 min</option>
+    </select>
+
+    <select id="inventorySelect" onchange="equipItem()">
+      <option value="">Inventory</option>
+    </select>
+  </div>
 
   <div id="timer" class="timer">25:00</div>
 
@@ -76,6 +123,7 @@ button{border:none;cursor:pointer;font-family:inherit}
   <button class="water-btn" onclick="waterTree()">💧 Water</button>
 </div>
 
+<!-- MENU -->
 <div class="card menu">
   <button onclick="openStore('tree')">🌱 Tree Store</button>
   <button onclick="openStore('animal')">🐾 Animal Store</button>
@@ -85,6 +133,7 @@ button{border:none;cursor:pointer;font-family:inherit}
 
 </div>
 
+<!-- MODAL -->
 <div class="modal" id="modal">
   <div class="modal-box">
     <button class="close" onclick="closeModal()">Close</button>
@@ -96,93 +145,121 @@ button{border:none;cursor:pointer;font-family:inherit}
 <div class="toast" id="toast"></div>
 
 <script>
-/* ---------- STATE ---------- */
-let stars=0, trees=0;
-let timer=1500, interval=null;
-let growthStage=0;
-let inventory=[];
-let claimed=false;
-let rebirthed=false;
+/* STATE */
+let stars = 0;
+let trees = 0;
+let timer = 1500;
+let interval = null;
+let growthStage = 0;
+let inventory = [];
+let claimed = false;
+let rebirthed = false;
 
-const stages=["🌱","🌿","🌳","🌲","🌳✨"];
-const treeStore=["🌱","🌸","🎍","🪴","🍂","🌵","🍁","🍄"];
-const animalStore=["🐶","🐱","🐰","🦊","🐻","🐼","🦁","🦄"];
-const rebirthStore=["🦄","🐲","🌷","🪷","🪸","🦚","🦢"];
+const stages = ["🌱","🌿","🌳","🌲","🌳✨"];
+const treeStore = ["🌱","🌸","🎍","🪴","🍂","🌵","🍁","🍄"];
+const animalStore = ["🐶","🐱","🐰","🦊","🐻","🐼","🦁","🦄"];
+const rebirthStore = ["🦄","🐲","🌷","🪷","🪸","🦚","🦢"];
 
-/* ---------- ELEMENTS ---------- */
-const starsEl=document.getElementById("stars");
-const treesEl=document.getElementById("trees");
-const treeEl=document.getElementById("tree");
-const timerEl=document.getElementById("timer");
-const modal=document.getElementById("modal");
-const modalTitle=document.getElementById("modalTitle");
-const modalBody=document.getElementById("modalBody");
+/* ELEMENTS */
+const starsEl = document.getElementById("stars");
+const treesEl = document.getElementById("trees");
+const treeEl = document.getElementById("tree");
+const timerEl = document.getElementById("timer");
+const timerSelect = document.getElementById("timerSelect");
+const invSelect = document.getElementById("inventorySelect");
 
-/* ---------- SAVE / LOAD ---------- */
+/* SAVE / LOAD */
 function save(){
-  localStorage.setItem("focusForest",JSON.stringify({stars,trees,growthStage,inventory,claimed,rebirthed}));
+  localStorage.setItem("focusForest", JSON.stringify({
+    stars, trees, growthStage, inventory, claimed, rebirthed
+  }));
 }
 function load(){
-  const d=JSON.parse(localStorage.getItem("focusForest"));
-  if(d)Object.assign(window,d);
+  const d = JSON.parse(localStorage.getItem("focusForest"));
+  if(!d) return;
+  stars=d.stars; trees=d.trees; growthStage=d.growthStage;
+  inventory=d.inventory||[];
+  claimed=d.claimed; rebirthed=d.rebirthed;
 }
 load();
 
-/* ---------- UI ---------- */
+/* UI */
+function updateInventory(){
+  invSelect.innerHTML = '<option value="">Inventory</option>';
+  inventory.forEach(i=>{
+    invSelect.innerHTML += `<option value="${i}">${i}</option>`;
+  });
+}
 function updateUI(){
-  starsEl.textContent=stars;
-  treesEl.textContent=trees;
-  treeEl.textContent=stages[growthStage] || "🌳";
-  timerEl.textContent=`${String(Math.floor(timer/60)).padStart(2,"0")}:${String(timer%60).padStart(2,"0")}`;
+  starsEl.textContent = stars;
+  treesEl.textContent = trees;
+  treeEl.textContent = stages[growthStage] || "🌳";
+  timerEl.textContent =
+    String(Math.floor(timer/60)).padStart(2,"0") + ":" +
+    String(timer%60).padStart(2,"0");
+  updateInventory();
   save();
 }
 updateUI();
 
-/* ---------- TIMER (SESSION BASED GROWTH) ---------- */
+/* TIMER */
 function startTimer(){
   if(interval) return;
-  timer=parseInt(timerSelect.value)*60;
+  timer = parseInt(timerSelect.value) * 60;
 
-  interval=setInterval(()=>{
+  interval = setInterval(()=>{
     timer--;
-    if(timer<=0){
+    if(timer <= 0){
       clearInterval(interval);
-      interval=null;
-
+      interval = null;
       trees++;
-      stars+=50;
-      growthStage=Math.min(growthStage+1,4);
-
+      stars += 50;
+      growthStage = Math.min(growthStage + 1, 4);
       toast("Session complete 🌱 +50⭐");
       resetTimer();
     }
     updateUI();
   },1000);
 }
-function pauseTimer(){clearInterval(interval);interval=null;}
-function resetTimer(){pauseTimer();timer=parseInt(timerSelect.value)*60;updateUI();}
+function pauseTimer(){
+  if(interval){
+    clearInterval(interval);
+    interval = null;
+  }
+}
+function resetTimer(){
+  pauseTimer();
+  timer = parseInt(timerSelect.value) * 60;
+  updateUI();
+}
 
-/* ---------- WATER ---------- */
+/* WATER */
 function waterTree(){
   treeEl.classList.add("water");
   setTimeout(()=>treeEl.classList.remove("water"),300);
   toast("Tree watered 💧");
 }
 
-/* ---------- DAILY BONUS ---------- */
+/* INVENTORY */
+function equipItem(){
+  if(invSelect.value){
+    treeEl.textContent = invSelect.value;
+  }
+}
+
+/* DAILY BONUS */
 function dailyBonus(){
-  if(claimed){toast("Already claimed");return;}
-  claimed=true;
-  let b=[50,60,100][Math.floor(Math.random()*3)];
-  stars+=b;
-  toast("Daily bonus +"+b+"⭐");
+  if(claimed) return toast("Already claimed");
+  claimed = true;
+  const b = [50,60,100][Math.floor(Math.random()*3)];
+  stars += b;
+  toast("Daily bonus +" + b + "⭐");
   updateUI();
 }
 
-/* ---------- STORE ---------- */
+/* STORE */
 function openStore(type){
-  let items=[],base=0,extra="";
-
+  let items=[], base=0, extra="";
   if(type==="tree"){items=treeStore;base=10;}
   if(type==="animal"){items=animalStore;base=50;}
   if(type==="rebirth"){
@@ -190,57 +267,54 @@ function openStore(type){
     extra=`<button class="plant-btn" onclick="doRebirth()">🔄 REBIRTH (1000⭐)</button><br><br>`;
   }
 
-  let html=extra+'<div class="grid">';
-  items.forEach((i,idx)=>{
-    let price=idx<2?0:base*idx;
-    html+=`<div class="item" onclick="buy('${i}',${price},'${type}')">
-      <span>${i}</span><small>${price}⭐</small></div>`;
-  });
-  html+='</div>';
+  modalTitle.textContent = type.toUpperCase()+" STORE";
+  modalBody.innerHTML = extra + '<div class="grid">' +
+    items.map((i,idx)=>{
+      let p = idx<2 ? 0 : base*idx;
+      return `<div class="item" onclick="buy('${i}',${p})">
+        ${i}<small>${p}⭐</small></div>`;
+    }).join("") + '</div>';
 
-  modalTitle.textContent=type.toUpperCase()+" STORE";
-  modalBody.innerHTML=html;
   modal.classList.add("active");
 }
-
-function buy(item,price,type){
-  if(type==="animal" && stars<750){toast("Animal store locked");return;}
-  if(type==="rebirth" && !rebirthed){toast("Rebirth required");return;}
-  if(stars<price){toast("Not enough ⭐");return;}
-  stars-=price;
+function buy(item, price){
+  if(stars < price) return toast("Not enough ⭐");
+  stars -= price;
   inventory.push(item);
-  treeEl.textContent=item;
-  toast(item+" unlocked");
+  treeEl.textContent = item;
+  toast(item + " unlocked");
   updateUI();
 }
 
-/* ---------- REBIRTH ---------- */
+/* REBIRTH */
 function doRebirth(){
-  if(stars<1000){toast("Need 1000⭐");return;}
-  stars=0;trees=0;inventory=[];growthStage=0;
-  rebirthed=true;
+  if(stars < 1000) return toast("Need 1000⭐");
+  stars = 0; trees = 0; growthStage = 0;
+  inventory = [];
+  rebirthed = true;
   toast("Rebirth successful 🔄");
   closeModal();
   updateUI();
 }
 
-/* ---------- ACHIEVEMENTS ---------- */
+/* ACHIEVEMENTS */
 function openAchievements(){
-  modalTitle.textContent="Achievements";
-  modalBody.innerHTML=`
+  modalTitle.textContent = "Achievements";
+  modalBody.innerHTML = `
     <div class="item">First Session ${trees>=1?"✅":"❌"}</div>
     <div class="item">100⭐ ${stars>=100?"✅":"❌"}</div>
     <div class="item">Rebirth ${rebirthed?"✅":"❌"}</div>`;
   modal.classList.add("active");
 }
 
-/* ---------- MISC ---------- */
+/* MISC */
 function closeModal(){modal.classList.remove("active");}
 function toast(t){
-  const x=document.getElementById("toast");
-  x.textContent=t;x.style.display="block";
+  const x = document.getElementById("toast");
+  x.textContent = t;
+  x.style.display = "block";
   setTimeout(()=>x.style.display="none",2000);
 }
 </script>
 </body>
-  </html>
+</html>
